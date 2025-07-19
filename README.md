@@ -25,5 +25,5 @@ The script prints analysis results including detected hump ranges, their energy 
 - Python 3.x
 - NumPy
 - Matplotlib
-- Scipy
+- Pandas
 
