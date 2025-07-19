@@ -1,5 +1,5 @@
 
-# Signal Hump Analysis Toolkit
+# Signal Hump Analysis 
 
 This project provides a pipeline for analyzing vibration signals from industrial devices and detecting abnormal humps in the frequency domain. It includes preprocessing, normalization, peak analysis, hump region detection, and sorting based on metadata timestamps.
 
