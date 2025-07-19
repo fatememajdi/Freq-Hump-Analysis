@@ -27,6 +27,3 @@ The script prints analysis results including detected hump ranges, their energy 
 - Matplotlib
 - Scipy
 
-## License
-
-MIT License
