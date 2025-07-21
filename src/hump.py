@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 
 def detect_hump_range_clusters(signal, min_freq=500, max_freq=None, top_percent=15, gap_threshold=100):
@@ -120,40 +121,49 @@ def extract_hump_center(hump_range):
     return (hump_range[0] + hump_range[1]) / 2 if hump_range else None
 
 
-def is_hump_shifting_downward(signals: list, top_percent=15, min_shift_hz=1000):
-    """
-    Checks whether the hump frequency is consistently shifting downward
-    across the list of signal objects.
+def extract_hump_center(hump_range):
+    if pd.isna(hump_range):
+        return None
+    try:
+        start, end = map(float, str(hump_range).split('-'))
+        return (start + end) / 2
+    except:
+        return None
 
-    Parameters:
-    - signals (list): list of TS signal objects (already loaded and preprocessed)
-    - top_percent (int): percentage of top energy used for hump detection
-    - min_shift_hz (float): minimum downward shift (in Hz) to consider as significant
 
-    Returns:
-    - bool: True if downward shift detected, else False
-    """
+def detect_downward_shifts(df: pd.DataFrame, min_shift_hz=1000):
+    df = df.copy()
 
-    hump_centers = []
+    df['Timestamp'] = pd.to_datetime(df['DATE'].astype(
+        str) + ' ' + df['TIME'].astype(str), errors='coerce')
+    df["hump_center"] = df["hump_range"].apply(
+        lambda r: (int(r.strip("()").split(",")[
+                   0]) + int(r.strip("()").split(",")[1])) / 2
+        if pd.notnull(r) and isinstance(r, str) else None
+    )
 
-    for signal_obj in signals:
-        signal_obj.fftransform()
-        hump_range = detect_hump_range_clusters(
-            signal_obj, top_percent=top_percent)
-        center = extract_hump_center(hump_range)
-        if center:
-            hump_centers.append(center)
 
-    if len(hump_centers) < 2:
-        return False
+    df['is_range_shift'] = False
 
-    start = hump_centers[0]
-    end = hump_centers[-1]
-    trend = end - start
+    for i, row in df.iterrows():
+        past_rows = df[
+            (df['COMP_NUMBER'] == row['COMP_NUMBER']) &
+            (df['ASSIGNMENT'] == row['ASSIGNMENT']) &
+            (df['Measuring_Point'] == row['Measuring_Point']) &
+            (df['Direction'] == row['Direction']) &
+            (df['Timestamp'] < row['Timestamp']) &
+            (~df['hump_center'].isna())
+        ]
 
-    if trend < 0 and abs(trend) > min_shift_hz:
-        return True
-    elif trend > 0 and abs(trend) > min_shift_hz:
-        return False
-    else:
-        return False
+        if past_rows.empty or pd.isna(row['hump_center']):
+            continue
+
+        latest_row = past_rows.sort_values('Timestamp').iloc[-1]
+        center_diff = row['hump_center'] - latest_row['hump_center']
+
+        if center_diff < 0 and abs(center_diff) > min_shift_hz:
+            df.at[i, 'is_range_shift'] = True
+        else:
+            df.at[i, 'is_range_shift'] = False
+
+    return df
